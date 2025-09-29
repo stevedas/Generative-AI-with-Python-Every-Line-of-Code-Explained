@@ -1,0 +1,116 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from tensorflow import keras
+from tensorflow.keras import layers
+from tensorflow.keras.preprocessing import image_dataset_from_directory
+from sklearn.model_selection import train_test_split
+
+# Initialize the variables used later
+IMG_FOLDER = 'C:/AI/images/CASTLES_TRAIN'  # Path to your image folder
+IMG_HEIGHT = 256
+IMG_WIDTH = 256
+BATCH_SIZE = 4
+EPOCHS = 10
+NOISE_FACTOR = 0.3  # Adjust the noise level. Higher amounts create  
+# photos that are less clear
+
+# Load and process the images from your hard drive 
+print("Loading images from disk...")
+# Load images from a directory and create a TensorFlow dataset
+image_dataset = image_dataset_from_directory(
+    IMG_FOLDER,
+    labels=None,
+    label_mode=None,
+    image_size=(IMG_HEIGHT, IMG_WIDTH),
+    batch_size=BATCH_SIZE, #how many images are input before the weights are updated
+    shuffle=True
+)
+
+# Function to normalize pixel values into the range 0 to 1
+def preprocess(img):
+    img = img / 255.0
+    return img
+
+# Apply normalization function
+image_dataset = image_dataset.map(preprocess)
+
+# Convert the dataset to a NumPy array before dividing into train 
+# and test sets
+images = []
+for batch in image_dataset.as_numpy_iterator():
+    images.append(batch)
+images = np.concatenate(images, axis=0)
+
+# Divide the NumPy array into train and test sets
+x_train, x_test = train_test_split(images, test_size=0.2, random_state=25)
+
+# Create images with noise for training  
+x_train_noisy = x_train + NOISE_FACTOR * np.random.normal(loc=0.0, scale=1.0,   
+  size=x_train.shape)
+x_test_noisy = x_test + NOISE_FACTOR * np.random.normal(loc=0.0, scale=1.0,  
+  size=x_test.shape)
+x_train_noisy = np.clip(x_train_noisy, 0., 1.)
+x_test_noisy = np.clip(x_test_noisy, 0., 1.)
+
+# Create the encoder
+# 3 is in the third place since these are color images (RGB)
+encoder_input = keras.Input(shape=(IMG_HEIGHT, IMG_WIDTH, 3))
+x = layers.Conv2D(32, (3, 3), activation='relu', padding='same')(encoder_input)
+x = layers.MaxPooling2D((2, 2), padding='same')(x)
+x = layers.Conv2D(16, (3, 3), activation='relu', padding='same')(x)
+encoded = layers.MaxPooling2D((2, 2), padding='same')(x)
+
+# Create the Decoder
+x = layers.Conv2D(16, (3, 3), activation='relu', padding='same')(encoded)
+x = layers.UpSampling2D((2, 2))(x)
+x = layers.Conv2D(32, (3, 3), activation='relu', padding='same')(x)
+x = layers.UpSampling2D((2, 2))(x)
+decoded = layers.Conv2D(3, (3, 3), activation='sigmoid', padding='same')(x)
+
+#Connect the encoder to the decoder to create the autoencoder  
+autoencoder = keras.Model(encoder_input, decoded)
+autoencoder.compile(optimizer='adam', loss='binary_crossentropy')
+
+# Train the autoencoder
+print("\n THE AUTOENCODER IS BEING TRAINED. PLEASE WAIT...")
+autoencoder.fit(
+    x_train_noisy,
+    x_train,
+    epochs=EPOCHS,
+    batch_size=BATCH_SIZE,
+    shuffle=True,
+    validation_data=(x_test_noisy, x_test)
+)
+
+# The autoencoder denoises the images in the x_test_noisy array
+reconstructed_images = autoencoder.predict(x_test_noisy)
+n = 2  # Number of images to display. Since x_test was 20% of 10
+       # we need 2 images
+plt.figure(figsize=(6, 6))
+for i in range(n):
+    # Display original images
+    ax = plt.subplot(3, n, i + 1)
+    plt.imshow(x_test[i])
+    plt.title("Original Image:")
+    plt.axis("off")
+
+    # Display noisy images
+    ax = plt.subplot(3, n, i + 1 + n)
+    plt.imshow(x_test_noisy[i])
+    plt.title("Noisy Image:")
+    plt.axis("off")
+
+    # Display the denoised images
+    ax = plt.subplot(3, n, i + 1 + 2 * n)
+    plt.imshow(reconstructed_images[i])
+    plt.title("Denoised Image:")
+    plt.axis("off")
+
+plt.show()
+
+
+
+
+
+
+
