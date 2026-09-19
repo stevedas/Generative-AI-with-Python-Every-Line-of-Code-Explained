@@ -2,17 +2,18 @@ import numpy as np
 import matplotlib.pyplot as plt
 from tensorflow import keras
 from tensorflow.keras import layers
-from tensorflow.keras.preprocessing import image_dataset_from_directory
+from tensorflow.keras.preprocessing\
+ import image_dataset_from_directory
 from sklearn.model_selection import train_test_split
 
 # Initialize the variables used later
-IMG_FOLDER = 'C:/AI/images/CASTLES_TRAIN'  # Path to your image folder
+IMG_FOLDER = 'C:/AI/images/CASTLES_TRAIN' #Path to your 
+#image folder
 IMG_HEIGHT = 256
 IMG_WIDTH = 256
 BATCH_SIZE = 4
 EPOCHS = 10
-NOISE_FACTOR = 0.3  # Adjust the noise level. Higher amounts create  
-# photos that are less clear
+NOISE_FACTOR = 0.3 #Adjust the noise level. Higher amounts #create photos that are less clear
 
 # Load and process the images from your hard drive 
 print("Loading images from disk...")
@@ -22,7 +23,9 @@ image_dataset = image_dataset_from_directory(
     labels=None,
     label_mode=None,
     image_size=(IMG_HEIGHT, IMG_WIDTH),
-    batch_size=BATCH_SIZE, #how many images are input before the weights are updated
+    #Batch shows how many images are input 
+    #before the weights are updated
+    batch_size=BATCH_SIZE, 
     shuffle=True
 )
 
@@ -34,8 +37,7 @@ def preprocess(img):
 # Apply normalization function
 image_dataset = image_dataset.map(preprocess)
 
-# Convert the dataset to a NumPy array before dividing into train 
-# and test sets
+# Convert the dataset to a NumPy array before dividing into train # and test sets
 images = []
 for batch in image_dataset.as_numpy_iterator():
     images.append(batch)
@@ -45,10 +47,8 @@ images = np.concatenate(images, axis=0)
 x_train, x_test = train_test_split(images, test_size=0.2, random_state=25)
 
 # Create images with noise for training  
-x_train_noisy = x_train + NOISE_FACTOR * np.random.normal(loc=0.0, scale=1.0,   
-  size=x_train.shape)
-x_test_noisy = x_test + NOISE_FACTOR * np.random.normal(loc=0.0, scale=1.0,  
-  size=x_test.shape)
+x_train_noisy = x_train + NOISE_FACTOR * np.random.normal(loc=0.0, scale=1.0, size=x_train.shape)
+x_test_noisy = x_test + NOISE_FACTOR * np.random.normal(loc=0.0, scale=1.0, size=x_test.shape)
 x_train_noisy = np.clip(x_train_noisy, 0., 1.)
 x_test_noisy = np.clip(x_test_noisy, 0., 1.)
 
@@ -84,8 +84,8 @@ autoencoder.fit(
 
 # The autoencoder denoises the images in the x_test_noisy array
 reconstructed_images = autoencoder.predict(x_test_noisy)
-n = 2  # Number of images to display. Since x_test was 20% of 10
-       # we need 2 images
+n = 2 # Number of images to display. Since x_test was 20% of 10
+# we need 2 images
 plt.figure(figsize=(6, 6))
 for i in range(n):
     # Display original images
@@ -107,10 +107,3 @@ for i in range(n):
     plt.axis("off")
 
 plt.show()
-
-
-
-
-
-
-
