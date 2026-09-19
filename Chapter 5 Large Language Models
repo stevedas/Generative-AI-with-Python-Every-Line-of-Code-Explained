@@ -1,0 +1,157 @@
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+# -----------------------
+# 1. Training text
+# -----------------------
+text = """
+New York City is the most populated
+city in the United States. It consists
+of five boroughs, Manhattan, Brooklyn,
+Queens, the Bronx, and Staten Island.
+"""
+
+# -----------------------
+# 2. Word tokenizer
+# -----------------------
+words = text.lower().split()
+
+vocab = sorted(set(words))
+vocab_size = len(vocab)
+
+word_to_id = {w: i for i, w in enumerate(vocab)}
+id_to_word = {i: w for w, i in word_to_id.items()}
+
+data = torch.tensor([word_to_id[w] for w in words])
+
+# ---------------------------
+# 3. Create training samples
+# ---------------------------
+block_size = 3
+
+X = []
+Y = []
+
+for i in range(len(data) - block_size):
+    X.append(data[i:i+block_size])
+    Y.append(data[i+block_size])
+
+X = torch.stack(X)
+Y = torch.tensor(Y)
+
+
+# -----------------------
+# 4. Small GPT model
+# -----------------------
+class SmallGPT(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+        self.embedding = nn.Embedding(vocab_size, 40)
+
+        self.attention = nn.MultiheadAttention(
+            embed_dim=40,
+            num_heads=4,
+            batch_first=True,
+            bias=False
+        )
+
+        self.linear = nn.Linear(40, vocab_size)
+
+    def forward(self, x):
+        # Convert word IDs into vectors
+        x = self.embedding(x)
+
+        # Self-attention
+        x, _ = self.attention(x, x, x)
+
+        # Use last word's context
+        x = x[:, -1, :]
+
+        # Predict next word
+        logits = self.linear(x)
+
+        return logits
+
+
+model = SmallGPT()
+
+
+# -----------------------
+# 5. Train the model
+# -----------------------
+optimizer = torch.optim.Adam(
+    model.parameters(),
+    lr=0.01
+)
+
+for step in range(1000):
+
+    logits = model(X)
+
+    loss = F.cross_entropy(logits, Y)
+
+    optimizer.zero_grad()
+    loss.backward()
+    optimizer.step()
+
+    if step % 100 == 0:
+        print(
+            "step",
+            step,
+            "loss",
+            loss.item()
+        )
+
+
+# -----------------------
+# 6. Generate text
+# -----------------------
+def generate(start, length=22):
+
+    model.eval()
+
+    tokens = start.lower().split()
+
+    for _ in range(length):
+
+        context = tokens[-block_size:]
+
+        # Pad if too short
+        while len(context) < block_size:
+            context.insert(0, vocab[0])
+
+        x = torch.tensor(
+            [[word_to_id[w] for w in context]]
+        )
+
+        with torch.no_grad():
+            logits = model(x)
+
+            probs = F.softmax(logits, dim=-1)
+
+            next_id = torch.multinomial(
+                probs,
+                1
+            ).item()
+
+        tokens.append(
+            id_to_word[next_id]
+        )
+
+    return " ".join(tokens)
+
+
+# -----------------------
+# 7. Test the model
+# -----------------------
+print()
+print(generate("New York City"))
+
+
+
+
+
+
+
